@@ -4,6 +4,7 @@ package desktopnotify
 import (
 	"context"
 	"fmt"
+	"os"
 	"os/exec"
 	"runtime"
 	"strings"
@@ -23,6 +24,7 @@ type Notifier interface {
 type commandRunner interface {
 	LookPath(string) (string, error)
 	Run(context.Context, string, ...string) error
+	RunInput(context.Context, string, string, ...string) error
 }
 
 type execRunner struct{}
@@ -33,6 +35,12 @@ func (execRunner) LookPath(name string) (string, error) {
 
 func (execRunner) Run(ctx context.Context, name string, args ...string) error {
 	return exec.CommandContext(ctx, name, args...).Run()
+}
+
+func (execRunner) RunInput(ctx context.Context, name, input string, args ...string) error {
+	cmd := exec.CommandContext(ctx, name, args...)
+	cmd.Stdin = strings.NewReader(input)
+	return cmd.Run()
 }
 
 type macOSNotifier struct {
@@ -60,6 +68,8 @@ func newForPlatform(platform string, run commandRunner) (Notifier, bool) {
 			return nil, false
 		}
 		return &linuxNotifier{executable: executable, run: run}, true
+	case "windows":
+		return &windowsNotifier{run: run, executable: os.Executable}, true
 	default:
 		return nil, false
 	}

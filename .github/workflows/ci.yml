@@ -2053,6 +2053,11 @@ jobs:
       - name: Windows service transitions
         run: go test ./internal/winsvc
 
+      - name: Windows desktop notification registration (no visible toast)
+        env:
+          GOOBERS_TEST_WINDOWS_TOAST_EXE: ""
+        run: go test ./internal/desktopnotify -count=1
+
       - name: Windows bounded diagnostic history
         run: go test -v ./internal/diagnostics/history ./internal/diagnostics/featureusage -count=1
 
