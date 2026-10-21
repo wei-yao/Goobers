@@ -27,9 +27,13 @@ func (r *recordingRunner) Run(_ context.Context, name string, args ...string) er
 	return r.err
 }
 
+func (r *recordingRunner) RunInput(ctx context.Context, name, _ string, args ...string) error {
+	return r.Run(ctx, name, args...)
+}
+
 func TestNewForPlatformUnsupported(t *testing.T) {
-	if notifier, supported := newForPlatform("windows", &recordingRunner{}); supported || notifier != nil {
-		t.Fatalf("newForPlatform(windows) = (%v, %v), want (nil, false)", notifier, supported)
+	if notifier, supported := newForPlatform("freebsd", &recordingRunner{}); supported || notifier != nil {
+		t.Fatalf("newForPlatform(freebsd) = (%v, %v), want (nil, false)", notifier, supported)
 	}
 }
 

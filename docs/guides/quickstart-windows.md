@@ -338,6 +338,52 @@ For unattended machine-wide operation under the Service Control Manager, follow
 [Daemon supervision → Windows](supervision.md#windows-windows-service). The SCM
 service runs as LocalSystem by default and is a separate deployment concern.
 
+### Desktop toast notifications
+
+Desktop toasts require Windows PowerShell **5.1** (`powershell.exe` on `PATH`)
+and a signed-in user running Goobers in the foreground or an interactive
+per-user Scheduled Task. SCM services, headless/noninteractive hosts, and
+WSL-to-Windows forwarding are not supported.
+
+Notifications are off by default. Enable failed/escalated-run alerts with:
+
+```powershell
+goobers up --notify C:\goobers\my-instance
+```
+
+Use `--notify=all` for every terminal outcome, or `--notify=false` to disable.
+For persistent failed/escalated alerts, set top-level `notifications: true` in
+`instance.yaml` and restart Goobers.
+
+The first notification automatically creates a per-user Start Menu
+`Goobers.lnk` pointing to `goobers.exe`, with the matching notifier identity
+**`Goobers.Desktop`**, as required by Microsoft's
+[desktop toast shortcut requirement](https://learn.microsoft.com/en-us/windows/win32/shell/enable-desktop-toast-with-appusermodelid).
+Registration is reused and updated if the binary moves; no administrator
+privileges or external modules are needed. Registration errors warrant checking
+Start Menu permissions and whether policy blocks PowerShell COM/`Add-Type`.
+
+Enable Goobers in **Settings → System → Notifications**. Do not disturb/Focus
+Assist and Windows policy can suppress banners even after successful submission.
+Delivery is best-effort, has a five-second timeout including registration, and
+never stops workflow execution.
+
+**Opt-in desktop smoke test (source checkout)**
+
+From a source checkout on a signed-in Windows desktop with this version installed:
+
+```powershell
+$env:GOOBERS_TEST_WINDOWS_TOAST_EXE = (Get-Command goobers.exe).Source
+go test ./internal/desktopnotify -run '^TestWindowsVisibleToast$' -count=1 -v
+Remove-Item Env:GOOBERS_TEST_WINDOWS_TOAST_EXE
+```
+
+**Manually confirm** the `Goobers desktop smoke test` toast is visible, attributed
+to Goobers, and preserves the fixed Unicode, special characters, and line break.
+A passing test proves submission only. Repeat to check registration reuse,
+including an install path with spaces. Record the Windows build and visible result.
+Headless CI must leave the opt-in variable unset; default tests never submit toasts.
+
 ## Deltas from the macOS/Linux flow
 
 | Aspect | Windows behavior |
