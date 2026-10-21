@@ -78,6 +78,10 @@ Register-GoobersShortcut $executable $programs
 if ([IO.File]::GetLastWriteTimeUtc($shortcut) -ne $stamp) { throw 'Registration was not idempotent' }
 $item = (New-Object -ComObject Shell.Application).NameSpace($programs).ParseName('Goobers.lnk')
 if ($item.ExtendedProperty('System.AppUserModel.ID') -cne 'Goobers.Desktop') { throw 'Incorrect AppUserModelID' }
+[GoobersShortcutIdentity]::Set($shortcut, 'Wrong.App')
+Register-GoobersShortcut $executable $programs
+$item = (New-Object -ComObject Shell.Application).NameSpace($programs).ParseName('Goobers.lnk')
+if ($item.ExtendedProperty('System.AppUserModel.ID') -cne 'Goobers.Desktop') { throw 'Stale identity was not repaired' }
 $moved = [IO.Path]::Combine($payload.Root, 'moved goobers.exe')
 Register-GoobersShortcut $moved $programs
 $link = (New-Object -ComObject WScript.Shell).CreateShortcut($shortcut)

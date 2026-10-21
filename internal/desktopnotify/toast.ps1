@@ -88,7 +88,8 @@ public static class GoobersShortcutIdentity {
 }
 
 try {
-    if ($PSVersionTable.PSVersion.Major -ne 5 -or
+    if ($PSVersionTable.PSVersion -lt [version]'5.1' -or
+        $PSVersionTable.PSEdition -ne 'Desktop' -or
         -not [Environment]::UserInteractive -or
         [Diagnostics.Process]::GetCurrentProcess().SessionId -eq 0) {
         exit 10
