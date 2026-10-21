@@ -340,13 +340,10 @@ service runs as LocalSystem by default and is a separate deployment concern.
 
 ### Desktop toast notifications
 
-Native Windows desktop toasts target the **signed-in user's desktop**: run
-Goobers in the foreground or through the per-user Scheduled Task configured to
-run only while that user is logged on. Windows PowerShell **5.1**
-(`powershell.exe`, not just PowerShell 7's `pwsh.exe`) must be on `PATH`.
-No administrator privileges, external modules, or execution-policy bypass are
-used. Application-control policy must allow the fixed PowerShell script and,
-on initial registration, its fixed `Add-Type` Shell property-store adapter.
+Desktop toasts require Windows PowerShell **5.1** (`powershell.exe` on `PATH`)
+and a signed-in user running Goobers in the foreground or an interactive
+per-user Scheduled Task. SCM services, headless/noninteractive hosts, and
+WSL-to-Windows forwarding are not supported.
 
 Notifications are off by default. Enable failed/escalated-run alerts with:
 
@@ -354,56 +351,26 @@ Notifications are off by default. Enable failed/escalated-run alerts with:
 goobers up --notify C:\goobers\my-instance
 ```
 
-Use `--notify=all` for every terminal outcome, or `--notify=false` to override
-the instance setting. To persist failed/escalated alerts, set the top-level
-`notifications: true` in `C:\goobers\my-instance\instance.yaml`, then start
-`goobers up` normally. These settings apply to desktop notifications, not speech.
+Use `--notify=all` for every terminal outcome, or `--notify=false` to disable.
+For persistent failed/escalated alerts, set top-level `notifications: true` in
+`instance.yaml` and restart Goobers.
 
-On the first eligible notification, Goobers lazily creates
-`Goobers.lnk` in the current user's Start Menu Programs folder (normally
-`%APPDATA%\Microsoft\Windows\Start Menu\Programs`). It points to the current
-`goobers.exe`, including paths containing spaces, and registers the stable
-AppUserModelID **`Goobers.Desktop`**. The WinRT notifier uses that same ID, never
-PowerShell's identity. Matching registrations are left untouched; a subsequent
-notification repairs the target if the binary moved. Keep the installed binary
-at a stable path. This follows Microsoft's
+The first notification automatically creates a per-user Start Menu
+`Goobers.lnk` pointing to `goobers.exe`, with the matching notifier identity
+**`Goobers.Desktop`**, as required by Microsoft's
 [desktop toast shortcut requirement](https://learn.microsoft.com/en-us/windows/win32/shell/enable-desktop-toast-with-appusermodelid).
-Registration is per-user, not part of the machine-wide/SCM installer. To remove
-it, stop Goobers and delete that shortcut; a future enabled notification
-recreates it.
+Registration is reused and updated if the binary moves; no administrator
+privileges or external modules are needed. Registration errors warrant checking
+Start Menu permissions and whether policy blocks PowerShell COM/`Add-Type`.
 
-Delivery remains best-effort and shares the existing five-second timeout,
-including registration. A cold PowerShell/compiler startup may time out;
-check the prerequisites and retry. Cancellation or toast errors do not stop
-workflow execution. Titles and bodies are scrubbed by the existing terminal
-notifier, XML-escaped, and sent as data rather than executable PowerShell.
-
-**Diagnostics and limitations**
-
-- Check `Get-Command powershell.exe` and run
-  `powershell.exe -NoProfile -Command '$PSVersionTable.PSVersion'`.
-- Registration errors indicate a missing/unwritable user profile or Start Menu,
-  a broken shortcut, or policy blocking COM/`Add-Type`. Check the shortcut's
-  target and permissions; remove a broken `Goobers.lnk` and retry.
-- Submission/prerequisite errors can indicate unavailable WinRT APIs or
-  notification services, session 0, or a noninteractive desktop. Disabled
-  notification settings produce a separate error where Windows reports them.
-- In **Settings → System → Notifications**, enable notifications globally and
-  for **Goobers** after registration. Do not disturb/Focus Assist, presentation
-  settings, group policy, or other Windows suppression can prevent a banner.
-  A successful API submission does **not** prove a toast was displayed or seen.
-- SCM services (including LocalSystem), tasks configured to run while logged
-  off, SSH/headless sessions, and noninteractive hosts are not supported desktop
-  delivery contexts. Some are rejected explicitly; session checks cannot prove
-  a visible desktop. There is no service-to-desktop bridge.
-- The Linux binary inside WSL still uses the Linux notifier; it does not forward
-  to Windows. WSL-to-Windows forwarding and toast click actions are out of scope.
-- The hosted Windows build/runtime gate is not evidence of visible toast delivery.
+Enable Goobers in **Settings → System → Notifications**. Do not disturb/Focus
+Assist and Windows policy can suppress banners even after successful submission.
+Delivery is best-effort, has a five-second timeout including registration, and
+never stops workflow execution.
 
 **Opt-in desktop smoke test (source checkout)**
 
-On a signed-in Windows desktop, install/build this version of `goobers.exe`,
-enable Windows notifications, and from the checkout run:
+From a source checkout on a signed-in Windows desktop with this version installed:
 
 ```powershell
 $env:GOOBERS_TEST_WINDOWS_TOAST_EXE = (Get-Command goobers.exe).Source
@@ -411,19 +378,11 @@ go test ./internal/desktopnotify -run '^TestWindowsVisibleToast$' -count=1 -v
 Remove-Item Env:GOOBERS_TEST_WINDOWS_TOAST_EXE
 ```
 
-This registers the installed binary and submits only fixed, harmless test
-content. **Manually confirm** a visible toast attributed to Goobers with the
-title `Goobers desktop smoke test`, Japanese text/emoji, literal quotes/XML
-characters and `$(text)`, and a second text line. A passing test alone means
-only submission; record the Windows build, execution context, and what was
-actually visible. Repeat to check registration reuse, and test with an installed
-path containing spaces. If no banner appears, check Notification Center and
-suppression settings; do not record that as a successful visible-toast test.
-
-Without the opt-in variable, `go test ./internal/desktopnotify` never submits
-a toast. Windows-specific tests exercise real Shell registration in a temporary
-folder, including identity, reuse, moved targets, and errors, without touching
-the real Start Menu. Headless CI must leave the opt-in variable unset.
+**Manually confirm** the `Goobers desktop smoke test` toast is visible, attributed
+to Goobers, and preserves the fixed Unicode, special characters, and line break.
+A passing test proves submission only. Repeat to check registration reuse,
+including an install path with spaces. Record the Windows build and visible result.
+Headless CI must leave the opt-in variable unset; default tests never submit toasts.
 
 ## Deltas from the macOS/Linux flow
 
